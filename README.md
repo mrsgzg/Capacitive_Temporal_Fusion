@@ -25,6 +25,7 @@ scikit-learn>=1.0
 matplotlib>=3.3
 seaborn>=0.11
 plotly>=5.0
+xgboost>=1.7
 tqdm>=4.50
 tensorboard>=2.0
 ```
@@ -32,96 +33,51 @@ tensorboard>=2.0
 ### Installation
 
 ```bash
-# Create conda environment
 conda create -n mtl-liquid python=3.10
 conda activate mtl-liquid
-
-# Install dependencies
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-pip install pandas numpy scikit-learn matplotlib seaborn plotly tqdm tensorboard
+pip install -r requirements.txt
 ```
 
 ## 📁 Directory Structure
 
 ```
 Robot_hand/
-├── README.md                          # This file
-├── Requirements.txt                   # Python dependencies
+├── README.md                       # Documentation
+├── requirements.txt                # Python dependencies
+├── datasets_New/                   # Input data (19 liquid classes)
+├── MLC/                            # Output directory (checkpoints & visualizations)
+├── baseline_runs_*/                # Baseline training results
 │
-├── datasets_New/                      # Input data directory
-│   ├── dataset_index_all.csv         # Full dataset index
-│   ├── dataset_split_balanced.csv    # Balanced split metadata
-│   ├── dataset_split_day.csv         # Day-based split metadata
-│   ├── liq-water/                    # Liquid class folders (19 total)
-│   ├── liq-ethanol/
-│   ├── liq-milk/
-│   ├── liq-oil/
-│   ├── liq-dishwash/
-│   ├── liq-handwash/
-│   ├── liq-grape_juice/
-│   ├── liq-milkshake/
-│   ├── liq-salt002/
-│   ├── liq-salt004/
-│   ├── liq-salt006/
-│   ├── liq-salt008/
-│   ├── liq-soy_sauce/
-│   ├── liq-sugar005/
-│   ├── liq-sugar010/
-│   ├── liq-sugar015/
-│   ├── liq-sugar020/
-│   ├── liq-syrup/
-│   └── liq-vinegar/
-│
-├── MLC/                               # Output directory for MTL training
-│   ├── output_mtl_[timestamp]/        # Training checkpoints
-│   └── visualize_mtl_[timestamp]/     # Embedding visualization outputs
-│
-├── baseline_runs_20260226_184024/    # Baseline training results
-│   ├── xgboost_stratified_by_bid_mcap_delta_1-4/
-│   ├── xgboost_stratified_by_bid_mcap_raw_1-4/
-│   ├── ... (12 configurations total)
-│   └── results_summary.txt
-│
-├── Core Training Scripts
-│   ├── train_mtl.py                  # MTL model training script
-│   ├── CNN_transformer_mtl.py         # MTL architecture definition
-│   ├── dataloader_mtl.py              # Data loading and preprocessing
-│   ├── baseline_lstm.py               # LSTM baseline training
-│   ├── baseline_transformer.py        # Transformer baseline training
-│   └── baseline_xgboost.py            # XGBoost baseline training
-│
-├── Visualization & Analysis
-│   ├── mtl_visualize_pca_tsne.py     # PCA/t-SNE embedding extraction
-│   ├── visualize_embeddings.ipynb    # Interactive embedding visualization
-│   ├── tsne_visualization_hq.png     # High-quality t-SNE plot output
-│   └── embeddings.csv                # Extracted embeddings data
-│
-└── SLURM Submission Scripts
-    ├── submit_mtl_train.sh            # MTL training job submission
-    └── submit_baselines.sh            # Baseline training jobs (12 configs)
+├── train_mtl.py                    # MTL model training
+├── baseline_lstm.py                # LSTM baseline
+├── baseline_transformer.py         # Transformer baseline
+├── baseline_xgboost.py             # XGBoost baseline
+├── CNN_transformer_mtl.py          # MTL architecture
+├── dataloader_mtl.py               # Data loading utilities
+├── mtl_visualize_pca_tsne.py       # Embedding extraction
+├── visualize_embeddings.ipynb      # Interactive visualization
+├── submit_mtl_train.sh             # SLURM: MTL training
+└── submit_baselines.sh             # SLURM: Baseline training (12 configs)
 ```
 
 ## 📊 Input Data Format
 
-Each liquid class folder contains CSV files with sensor data:
+**CSV files in `datasets_New/liq-*/`:**
+- Columns: 4 sensor channels (mcap_1, mcap_2, mcap_3, mcap_4)
+- Rows: 384 timesteps per sequence
+- Labels: Liquid class (folder name), Bottle type (extracted from filename: pet01, pet02, glass01, glass02)
 
-**CSV Structure:**
-- **Columns**: 4 sensor channels (mcap_1, mcap_2, mcap_3, mcap_4)
-- **Rows**: Time series samples (384 timesteps per sequence)
-- **Preprocessing**: 
-  - Standardization using training set statistics
-  - Extraction of middle 80% phase of acquisition
-  - Optional delta feature computation (4-step difference)
-- **Labels**:
-  - Liquid class: Folder name (e.g., liq-water)
-  - Bottle type: Extracted from filename (pet01, pet02, glass01, glass02)
+**Preprocessing:**
+- Standardization (training set statistics)
+- Middle 80% phase extraction
+- Optional delta features (4-step difference)
 
 ## 🚀 Quick Start
 
-### 1. MTL Model Training
+### 1. MTL Training
 
 ```bash
-# Single GPU training
 python train_mtl.py \
     --csv_list datasets_New/dataset_split_balanced.csv \
     --allow_split random_by_class \
@@ -129,31 +85,13 @@ python train_mtl.py \
     --epochs 1000 \
     --batch_size 64 \
     --lr 5e-4 \
-    --seed 42 \
     --require_cuda
-
-# Or submit to HPC with SLURM
-sbatch submit_mtl_train.sh
 ```
 
-**Key Arguments:**
-- `--csv_list`: Path to dataset index CSV
-- `--allow_split`: Data split strategy (random_by_class, stratified_by_bid, by_device)
-- `--val_ratio`: Validation set ratio (0.0-1.0)
-- `--epochs`: Number of training epochs
-- `--batch_size`: Batch size for training
-- `--lr`: Learning rate
-- `--require_cuda`: Enforce GPU usage
-
-**Output:**
-- Best model checkpoint: `MLC/output_mtl_[timestamp]/best_mtl.pt`
-- Training logs: TensorBoard in `MLC/output_mtl_[timestamp]/`
-- Per-class metrics on test set (accuracy, F1, confusion matrix)
-
-### 2. Baseline Model Training
+### 2. Baseline Training
 
 ```bash
-# Train single baseline
+# Single baseline
 python baseline_lstm.py \
     --csv_list datasets_New/dataset_split_balanced.csv \
     --allow_split stratified_by_bid \
@@ -161,149 +99,75 @@ python baseline_lstm.py \
     --epochs 500 \
     --batch_size 32
 
-# Or train all 12 baseline configurations at once
+# All 12 configurations (3 models × 2 splits × 2 features)
 sbatch submit_baselines.sh
 ```
 
-**Baseline Configurations (3 models × 2 splits × 2 features = 12 jobs):**
-- **Models**: xgboost, lstm, transformer
-- **Split modes**: stratified_by_bid, by_device
-- **Features**: mcap_delta_1-4 (4-step difference), mcap_raw_1-4 (raw values)
-
-### 3. Embedding Visualization
+### 3. Visualization
 
 ```bash
-# Extract MTL embeddings
+# Extract embeddings
 python mtl_visualize_pca_tsne.py \
     --checkpoint MLC/output_mtl_[timestamp]/best_mtl.pt \
-    --csv_list datasets_New/dataset_split_balanced.csv \
-    --output_dir MLC/visualize_mtl_[timestamp]/
+    --csv_list datasets_New/dataset_split_balanced.csv
 
-# Interactive visualization in Jupyter
+# Interactive dashboard
 jupyter notebook visualize_embeddings.ipynb
 ```
 
 ## 📈 Model Architectures
 
-### MTL Model (CNN + Transformer)
+**MTL Model (CNN + Transformer):**
+- CNN encoder (4 layers) + Transformer (512d, 8 heads, 4 layers, RoPE)
+- Dual heads: Liquid (19 classes) + Bottle (4 types)
+- Loss: `2.2×L_liquid + 0.1×L_bottle`
 
-**Backbone:**
-- CNN encoder: 4 conv layers → adaptive pooling
-- Transformer encoder: 512 hidden dims, 8 attention heads, 4 layers, RoPE positional encoding
+**LSTM Baseline:** Bidirectional LSTM (512 hidden, 4 layers) + attention → 19 classes
 
-**Heads:**
-- Liquid classification: Softmax over 19 classes
-- Bottle classification: Softmax over 4 types
+**Transformer Baseline:** Pure Transformer encoder (512d, 8 heads, 4 layers) → 19 classes
 
-**Multi-task Loss:**
-```
-L_total = 2.2 × L_liquid + 0.1 × L_bottle
-```
+**XGBoost Baseline:** Statistical features (8 stats × 4 channels = 32D) → gradient boosting
 
-### LSTM Baseline
-
-- Bidirectional LSTM: 512 hidden units, 4 layers
-- Attention mechanism for sequence pooling
-- Output: 19-class liquid classifier
-
-### Transformer Baseline
-
-- Pure Transformer encoder: 512 dims, 8 heads, 4 layers
-- Global average pooling
-- Output: 19-class liquid classifier
-
-### XGBoost Baseline
-
-- Statistical feature extraction (mean, std, min, max, percentiles)
-- 32-dimensional feature vector (8 stats × 4 channels)
-- Gradient boosting classifier
-
-## 📊 Performance Results
-
-### Best Models (Stratified-by-BID + Delta Features)
-
-| Model | Accuracy | F1-Score |
-|-------|----------|----------|
-| **LSTM** | 91.56% | 0.9134 |
-| XGBoost | 79.39% | 0.7892 |
-| Transformer | 51.86% | 0.5043 |
-| MTL | TBD | TBD |
-
-**Key Findings:**
-- Delta features significantly outperform raw features (15-30pp improvement)
-- Stratified-by-bid split (preserving bottle ID distribution) > by_device split
-- LSTM shows superior performance over Transformer and XGBoost
-
-## 🔍 Analysis & Visualization
-
-### Embedding Space Analysis
+##  Analysis & Visualization
 
 ```bash
-python mtl_visualize_pca_tsne.py  # Extract 2D embeddings via PCA/t-SNE
-```
+# Extract 2D embeddings from trained MTL model
+python mtl_visualize_pca_tsne.py \
+    --checkpoint MLC/output_mtl_[timestamp]/best_mtl.pt \
+    --csv_list datasets_New/dataset_split_balanced.csv
 
-**Outputs:**
-- `pca_liquid.png`: PCA projection of liquid classes
-- `pca_bottle.png`: PCA projection of bottle types
-- `tsne_liquid.png`: t-SNE projection of liquid classes (high-res)
-- `tsne_bottle.png`: t-SNE projection of bottle types
-- `embeddings.csv`: Full embedding coordinates with labels
-- `summary.json`: Configuration metadata
-
-### Interactive Dashboard
-
-Run the Jupyter notebook:
-```bash
+# Interactive Jupyter dashboard
 jupyter notebook visualize_embeddings.ipynb
 ```
 
-**Features:**
-- 4 static matplotlib plots (PCA/t-SNE × liquid/bottle)
-- 4 interactive Plotly dashboards with hover information
-- K-means clustering analysis (k=5)
-- Data statistics and class distribution
-- High-quality PNG export (300 DPI)
+**Outputs:** PCA/t-SNE projections, Plotly dashboards, K-means clustering (k=5), 300 DPI exports
 
 ## 🖥️ HPC Submission
 
-### SLURM Configuration
-
-**MTL Training:**
 ```bash
+# Submit MTL training
 sbatch submit_mtl_train.sh
-```
 
-**Baseline Training (all 12 configs):**
-```bash
+# Submit all 12 baseline configurations
 sbatch submit_baselines.sh
-```
 
-**Monitor Jobs:**
-```bash
+# Monitor jobs
 squeue -u $USER
-squeue -j <job_id> --long
 ```
 
-**Resource Requirements (per job):**
-- GPU: L40S (64GB VRAM)
-- CPU: 12 cores
-- Time: 10-120 hours (depending on epochs and model)
-- Memory: ~80GB
+**Resources:** GPU L40S (64GB), 12 CPU cores, 10-120 hours
 
 ## 📝 Output Structure
 
 ```
 MLC/
-├── output_mtl_20260227_073453/
-│   ├── best_mtl.pt               # Best checkpoint
-│   ├── final_mtl.pt              # Final checkpoint
-│   ├── config.json               # Training config
-│   ├── class_map.json            # Liquid class idx mapping
-│   └── events.out.tfevents.*     # TensorBoard logs
+├── output_mtl_[timestamp]/
+│   ├── best_mtl.pt            # Best checkpoint
+│   ├── config.json            # Training config
+│   └── events.out.tfevents.*  # TensorBoard logs
 │
-└── visualize_mtl_20260227_073453/
-    ├── embeddings.csv            # 8 columns: method, x, y, liquid_*, bottle_*, path
-    ├── summary.json              # Metadata
+└── visualize_mtl_[timestamp]/
+    ├── embeddings.csv         # 2D coordinates + labels
     ├── pca_liquid.png
     ├── pca_bottle.png
     ├── tsne_liquid.png
@@ -312,42 +176,12 @@ MLC/
 
 ## 🔧 Troubleshooting
 
-**CUDA not available:**
-```bash
-# Check CUDA availability
-python -c "import torch; print(torch.cuda.is_available())"
-
-# Use CPU-only (slower)
-python train_mtl.py --no_require_cuda
-```
-
-**Memory issues:**
-- Reduce `--batch_size`
-- Enable gradient checkpointing: `--use_gradient_checkpointing`
-- Use mixed precision: Already enabled with AMP
-
-**Data loading errors:**
-- Verify CSV paths in `--csv_list`
-- Check file permissions: `ls -la datasets_New/`
-- Validate CSV format: `head -5 datasets_New/liq-water/*.csv`
-
-## 📚 Citation
-
-```bibtex
-@project{mtl_liquid_classification_2026,
-  title={Multi-Task Learning for Robotic Liquid and Bottle Classification},
-  author={Your Name},
-  year={2026}
-}
-```
-
-## 📞 Contact
-
-For questions or issues, please open an issue or contact the maintainer.
+| Issue | Solution |
+|-------|----------|
+| CUDA not available | Run `python -c "import torch; print(torch.cuda.is_available())"` or use `--no_require_cuda` |
+| Out of memory | Reduce `--batch_size` or use AMP (enabled by default) |
+| Data loading errors | Verify CSV paths and file permissions: `ls -la datasets_New/` |
 
 ---
 
-**Last Updated:** 2026-02-27  
-**Status**: Active Development  
-**Python Version**: 3.10+  
-**Framework**: PyTorch 2.0+
+**Last Updated:** 2026-02-27 | **Python 3.10+** | **PyTorch 2.0+**
