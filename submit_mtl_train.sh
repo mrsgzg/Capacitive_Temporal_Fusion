@@ -6,7 +6,7 @@
 # ============================================================
 
 #SBATCH --job-name=mtl_train
-#SBATCH --partition=gpuL
+#SBATCH --partition=gpuA
 #SBATCH --gres=gpu:1
 #SBATCH --mem=40G
 #SBATCH --cpus-per-task=12
@@ -14,7 +14,7 @@
 #SBATCH --output=logs/%x_%j.out
 #SBATCH --error=logs/%x_%j.err
 #SBATCH --mail-type=END,FAIL
-#SBATCH --mail-user=k09562zs@nottingham.ac.uk
+#SBATCH --mail-user=k09562zs@manchester.ac.uk
 
 # Print job info
 echo "=========================================="
@@ -26,7 +26,7 @@ echo "Start time: $(date)"
 echo "=========================================="
 
 # Change to work directory
-cd /mnt/iusers01/fatpou01/compsci01/k09562zs/scratch/Robot_hand
+cd /mnt/iusers01/fatpou01/compsci01/k09562zs/scratch/Capacitive_Temporal_Fusion
 echo "Working directory: $(pwd)"
 
 # Activate conda environment
@@ -53,8 +53,8 @@ echo "=========================================="
 
 echo "stratified_by_bid + delta features"
 python train_mtl.py \
-  --data_root /mnt/iusers01/fatpou01/compsci01/k09562zs/scratch/Robot_hand/datasets_New \
-  --out_dir /mnt/iusers01/fatpou01/compsci01/k09562zs/scratch/Robot_hand/MLC/output_mtl_$(date +%Y%m%d_%H%M%S) \
+  --data_root /mnt/iusers01/fatpou01/compsci01/k09562zs/scratch/Capacitive_Temporal_Fusion/datasets_New \
+  --out_dir /mnt/iusers01/fatpou01/compsci01/k09562zs/scratch/Capacitive_Temporal_Fusion/MLC/output_mtl_$(date +%Y%m%d_%H%M%S) \
   --split_mode stratified_by_bid \
   --d_model 512 \
   --nhead 8 \
@@ -84,11 +84,11 @@ python train_mtl.py \
   --no_early_stop \
   --seed 256
 
-'''
+
 echo "stratified_by_bid + raw features"
 python train_mtl.py \
-  --data_root /mnt/iusers01/fatpou01/compsci01/k09562zs/scratch/Robot_hand/datasets_New \
-  --out_dir /mnt/iusers01/fatpou01/compsci01/k09562zs/scratch/Robot_hand/MLC/output_mtl_$(date +%Y%m%d_%H%M%S) \
+  --data_root /mnt/iusers01/fatpou01/compsci01/k09562zs/scratch/Capacitive_Temporal_Fusion/datasets_New \
+  --out_dir /mnt/iusers01/fatpou01/compsci01/k09562zs/scratch/Capacitive_Temporal_Fusion/MLC/output_mtl_$(date +%Y%m%d_%H%M%S) \
   --split_mode stratified_by_bid \
   --d_model 512 \
   --nhead 8 \
@@ -120,8 +120,8 @@ python train_mtl.py \
 
 echo "by_device + delta features"
 python train_mtl.py \
-  --data_root /mnt/iusers01/fatpou01/compsci01/k09562zs/scratch/Robot_hand/datasets_New \
-  --out_dir /mnt/iusers01/fatpou01/compsci01/k09562zs/scratch/Robot_hand/MLC/output_mtl_$(date +%Y%m%d_%H%M%S) \
+  --data_root /mnt/iusers01/fatpou01/compsci01/k09562zs/scratch/Capacitive_Temporal_Fusion/datasets_New \
+  --out_dir /mnt/iusers01/fatpou01/compsci01/k09562zs/scratch/Capacitive_Temporal_Fusion/MLC/output_mtl_$(date +%Y%m%d_%H%M%S) \
   --split_mode by_device \
   --d_model 512 \
   --nhead 8 \
@@ -153,8 +153,8 @@ python train_mtl.py \
 
 echo "by_device + raw features"
 python train_mtl.py \
-  --data_root /mnt/iusers01/fatpou01/compsci01/k09562zs/scratch/Robot_hand/datasets_New \
-  --out_dir /mnt/iusers01/fatpou01/compsci01/k09562zs/scratch/Robot_hand/MLC/output_mtl_$(date +%Y%m%d_%H%M%S) \
+  --data_root /mnt/iusers01/fatpou01/compsci01/k09562zs/scratch/Capacitive_Temporal_Fusion/datasets_New \
+  --out_dir /mnt/iusers01/fatpou01/compsci01/k09562zs/scratch/Capacitive_Temporal_Fusion/MLC/output_mtl_$(date +%Y%m%d_%H%M%S) \
   --split_mode by_device \
   --d_model 512 \
   --nhead 8 \
@@ -184,7 +184,7 @@ python train_mtl.py \
   --no_early_stop \
   --seed 256
 
-'''
+
 # Job completion
 echo ""
 echo "=========================================="

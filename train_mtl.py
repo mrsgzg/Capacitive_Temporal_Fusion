@@ -111,9 +111,13 @@ def evaluate_mtl(model, loader, device, return_predictions=False):
     
     return {
         "liquid_acc": float(accuracy_score(y_liquid, p_liquid)),
-        "liquid_f1": float(f1_score(y_liquid, p_liquid, average="macro", zero_division=0)),
+        "liquid_f1_macro": float(f1_score(y_liquid, p_liquid, average="macro", zero_division=0)),
+        "liquid_f1_weighted": float(f1_score(y_liquid, p_liquid, average="weighted", zero_division=0)),
+        "liquid_f1_micro": float(f1_score(y_liquid, p_liquid, average="micro", zero_division=0)),
         "bottle_acc": float(accuracy_score(y_bottle, p_bottle)),
-        "bottle_f1": float(f1_score(y_bottle, p_bottle, average="macro", zero_division=0)),
+        "bottle_f1_macro": float(f1_score(y_bottle, p_bottle, average="macro", zero_division=0)),
+        "bottle_f1_weighted": float(f1_score(y_bottle, p_bottle, average="weighted", zero_division=0)),
+        "bottle_f1_micro": float(f1_score(y_bottle, p_bottle, average="micro", zero_division=0)),
     }
 
 
@@ -231,9 +235,9 @@ def train_mtl_model(args, train_items, val_items, class_map, bid_map, phase_keep
             "train_loss_bottle": train_loss_bottle,
             "train_loss_total": train_loss_total,
             "val_liquid_acc": val_metrics["liquid_acc"],
-            "val_liquid_f1": val_metrics["liquid_f1"],
+            "val_liquid_f1_weighted": val_metrics["liquid_f1_weighted"],
             "val_bottle_acc": val_metrics["bottle_acc"],
-            "val_bottle_f1": val_metrics["bottle_f1"],
+            "val_bottle_f1_weighted": val_metrics["bottle_f1_weighted"],
             "combined_score": combined_score,
             "lr": float(optimizer.param_groups[0]["lr"]),
         }
@@ -241,15 +245,17 @@ def train_mtl_model(args, train_items, val_items, class_map, bid_map, phase_keep
         
         # TensorBoard logging
         tb_writer.add_scalar("metrics/val_liquid_acc", val_metrics["liquid_acc"], epoch)
-        tb_writer.add_scalar("metrics/val_liquid_f1", val_metrics["liquid_f1"], epoch)
+        tb_writer.add_scalar("metrics/val_liquid_f1_weighted", val_metrics["liquid_f1_weighted"], epoch)
+        tb_writer.add_scalar("metrics/val_liquid_f1_macro", val_metrics["liquid_f1_macro"], epoch)
         tb_writer.add_scalar("metrics/val_bottle_acc", val_metrics["bottle_acc"], epoch)
-        tb_writer.add_scalar("metrics/val_bottle_f1", val_metrics["bottle_f1"], epoch)
+        tb_writer.add_scalar("metrics/val_bottle_f1_weighted", val_metrics["bottle_f1_weighted"], epoch)
+        tb_writer.add_scalar("metrics/val_bottle_f1_macro", val_metrics["bottle_f1_macro"], epoch)
         tb_writer.add_scalar("lr", optimizer.param_groups[0]["lr"], epoch)
         
         print(f"[E{epoch:03d}] "
               f"L_l={train_loss_liquid:.4f} L_b={train_loss_bottle:.4f} "
-              f"| liquid_acc={val_metrics['liquid_acc']:.4f} "
-              f"bottle_acc={val_metrics['bottle_acc']:.4f} "
+              f"| liquid_acc={val_metrics['liquid_acc']:.4f} f1_w={val_metrics['liquid_f1_weighted']:.4f} "
+              f"bottle_acc={val_metrics['bottle_acc']:.4f} f1_w={val_metrics['bottle_f1_weighted']:.4f} "
               f"| lr={rec['lr']:.2e}")
         
         improved = (combined_score >= best_score + args.min_delta)
@@ -320,9 +326,13 @@ def test_mtl_model(best_path, train_items, val_items, device, class_map, bid_map
     
     # Calculate metrics
     liquid_acc = accuracy_score(y_liquid, p_liquid)
-    liquid_f1 = f1_score(y_liquid, p_liquid, average="macro", zero_division=0)
+    liquid_f1_macro = f1_score(y_liquid, p_liquid, average="macro", zero_division=0)
+    liquid_f1_weighted = f1_score(y_liquid, p_liquid, average="weighted", zero_division=0)
+    liquid_f1_micro = f1_score(y_liquid, p_liquid, average="micro", zero_division=0)
     bottle_acc = accuracy_score(y_bottle, p_bottle)
-    bottle_f1 = f1_score(y_bottle, p_bottle, average="macro", zero_division=0)
+    bottle_f1_macro = f1_score(y_bottle, p_bottle, average="macro", zero_division=0)
+    bottle_f1_weighted = f1_score(y_bottle, p_bottle, average="weighted", zero_division=0)
+    bottle_f1_micro = f1_score(y_bottle, p_bottle, average="micro", zero_division=0)
     
     # Generate reports
     liquid_report = classification_report(y_liquid, p_liquid, 
@@ -340,8 +350,10 @@ def test_mtl_model(best_path, train_items, val_items, device, class_map, bid_map
     print("\n" + "="*80)
     print("LIQUID CLASSIFICATION RESULTS")
     print("="*80)
-    print(f"Overall Accuracy: {liquid_acc:.4f}")
-    print(f"Macro F1-Score:   {liquid_f1:.4f}")
+    print(f"Overall Accuracy:     {liquid_acc:.4f}")
+    print(f"Macro F1-Score:       {liquid_f1_macro:.4f}  (equal weight per class)")
+    print(f"Weighted F1-Score:    {liquid_f1_weighted:.4f}  (inverse class freq weighting)")
+    print(f"Micro F1-Score:       {liquid_f1_micro:.4f}  (should equal accuracy)")
     print("\nClassification Report:")
     print(liquid_report)
     print("Confusion Matrix:")
@@ -350,8 +362,10 @@ def test_mtl_model(best_path, train_items, val_items, device, class_map, bid_map
     print("\n" + "="*80)
     print("BOTTLE TYPE CLASSIFICATION RESULTS")
     print("="*80)
-    print(f"Overall Accuracy: {bottle_acc:.4f}")
-    print(f"Macro F1-Score:   {bottle_f1:.4f}")
+    print(f"Overall Accuracy:     {bottle_acc:.4f}")
+    print(f"Macro F1-Score:       {bottle_f1_macro:.4f}  (equal weight per class)")
+    print(f"Weighted F1-Score:    {bottle_f1_weighted:.4f}  (inverse class freq weighting)")
+    print(f"Micro F1-Score:       {bottle_f1_micro:.4f}  (should equal accuracy)")
     print("\nClassification Report:")
     print(bottle_report)
     print("Confusion Matrix:")
@@ -360,9 +374,19 @@ def test_mtl_model(best_path, train_items, val_items, device, class_map, bid_map
     print("\n" + "="*80)
     print("SUMMARY")
     print("="*80)
-    print(f"Liquid:  acc={liquid_acc:.4f}, f1={liquid_f1:.4f}")
-    print(f"Bottle:  acc={bottle_acc:.4f}, f1={bottle_f1:.4f}")
-    print(f"Combined Score: {(liquid_acc + bottle_acc) / 2:.4f}")
+    print(f"\nLiquid Classification:")
+    print(f"  Accuracy:       {liquid_acc:.4f}")
+    print(f"  Macro F1:       {liquid_f1_macro:.4f}")
+    print(f"  Weighted F1:    {liquid_f1_weighted:.4f}")
+    print(f"  Micro F1:       {liquid_f1_micro:.4f}")
+    print(f"\nBottle Classification:")
+    print(f"  Accuracy:       {bottle_acc:.4f}")
+    print(f"  Macro F1:       {bottle_f1_macro:.4f}")
+    print(f"  Weighted F1:    {bottle_f1_weighted:.4f}")
+    print(f"  Micro F1:       {bottle_f1_micro:.4f}")
+    print(f"\nCombined Score: {(liquid_acc + bottle_acc) / 2:.4f}")
+    print("\nNote: If Macro F1 ≈ Accuracy, classes are well-balanced.")
+    print("      If Weighted F1 << Macro F1, there's significant class imbalance.")
     
     # Save results to file
     results_file = os.path.join(args.out_dir, "test_results.txt")
@@ -370,8 +394,10 @@ def test_mtl_model(best_path, train_items, val_items, device, class_map, bid_map
         f.write("="*80 + "\n")
         f.write("LIQUID CLASSIFICATION RESULTS\n")
         f.write("="*80 + "\n")
-        f.write(f"Overall Accuracy: {liquid_acc:.4f}\n")
-        f.write(f"Macro F1-Score:   {liquid_f1:.4f}\n")
+        f.write(f"Overall Accuracy:  {liquid_acc:.4f}\n")
+        f.write(f"Macro F1-Score:    {liquid_f1_macro:.4f}\n")
+        f.write(f"Weighted F1-Score: {liquid_f1_weighted:.4f}\n")
+        f.write(f"Micro F1-Score:    {liquid_f1_micro:.4f}\n")
         f.write("\nClassification Report:\n")
         f.write(liquid_report)
         f.write("\nConfusion Matrix:\n")
@@ -379,8 +405,10 @@ def test_mtl_model(best_path, train_items, val_items, device, class_map, bid_map
         f.write("\n" + "="*80 + "\n")
         f.write("BOTTLE TYPE CLASSIFICATION RESULTS\n")
         f.write("="*80 + "\n")
-        f.write(f"Overall Accuracy: {bottle_acc:.4f}\n")
-        f.write(f"Macro F1-Score:   {bottle_f1:.4f}\n")
+        f.write(f"Overall Accuracy:  {bottle_acc:.4f}\n")
+        f.write(f"Macro F1-Score:    {bottle_f1_macro:.4f}\n")
+        f.write(f"Weighted F1-Score: {bottle_f1_weighted:.4f}\n")
+        f.write(f"Micro F1-Score:    {bottle_f1_micro:.4f}\n")
         f.write("\nClassification Report:\n")
         f.write(bottle_report)
         f.write("\nConfusion Matrix:\n")
@@ -390,11 +418,15 @@ def test_mtl_model(best_path, train_items, val_items, device, class_map, bid_map
     
     return {
         "liquid_acc": liquid_acc,
-        "liquid_f1": liquid_f1,
+        "liquid_f1_macro": liquid_f1_macro,
+        "liquid_f1_weighted": liquid_f1_weighted,
+        "liquid_f1_micro": liquid_f1_micro,
         "liquid_report": liquid_report,
         "liquid_cm": liquid_cm,
         "bottle_acc": bottle_acc,
-        "bottle_f1": bottle_f1,
+        "bottle_f1_macro": bottle_f1_macro,
+        "bottle_f1_weighted": bottle_f1_weighted,
+        "bottle_f1_micro": bottle_f1_micro,
         "bottle_report": bottle_report,
         "bottle_cm": bottle_cm,
     }
